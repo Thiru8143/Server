@@ -1,144 +1,97 @@
-const express = require('express');
-const app = express();
-const cors = require('cors');
-const mongoose = require('mongoose');
-
+var express = require('express');
+var mongoose = require('mongoose')
+var app = express();
+var cors = require('cors');
 app.use(cors());
 app.use(express.json());
+app.get('/', (req,res)=>{res.send("Welcome")})
 
-// Create a root path
-app.get('/', (req, res) => {
-    res.send('Welcome');
-});
+app.listen(1234, ()=>{console.log("Server Connected")})
+mongoose.connect('mongodb+srv://thiru:thiru@customer.ujvvp.mongodb.net/bank').then(()=>{console.log("DB Connected")})
 
-// Start server
-app.listen(1234, () => {
-    console.log("Server Connected");
-});
+let data=new mongoose.Schema({
+    name:String,
+    email:String,
+    password:String,
+    amount:Number
+}) 
 
-// Connect MongoDB
-mongoose.connect('mongodb+srv://thiru:thiru@customer.ujvvp.mongodb.net/bank')
-    .then(() => {
-        console.log("DB CONNECTED");
-    })
-    .catch((err) => console.error("DB connection error:", err));
+let Data=mongoose.model("test",data)
 
-// Create Schema
-let dataSchema = new mongoose.Schema({
-    name: String,
-    email: String,
-    password: String,
-    amount: Number
-});
-let Data = mongoose.model("test", dataSchema);
 
-// API for fetching data
-app.get('/data', (req, res) => {
-    Data.find()
-        .then((items) => res.send(items))
-        .catch((err) => res.status(500).send(err));
-});
+app.get('/data',(req, res) => {Data.find().then((item)=>res.send(item))})
 
-// API for creating data
-app.post('/create', (req, res) => {
-    Data.create(req.body)
-        .then((item) => res.send(item))
-        .catch((err) => res.status(500).send(err));
-});
+app.post('/create',(req, res)=>{Data.create(req.body).then((item)=>{res.send(item)})})
 
-// API for deleting data
-app.delete('/data/:id', async (req, res) => {
+app.delete('/delete/:id',(req, res)=>{Data.findByIdAndDelete(req.params.id).then((item)=>{res.send("Deleted Successfully")})})
+
+
+app.put('/update/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        const deletedUser = await Data.findByIdAndDelete(id);
-
-        if (!deletedUser) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        res.status(200).json({ message: 'User deleted successfully', deletedUser });
+      const updatedData = await Data.findByIdAndUpdate(req.params.id, req.body, { new: true });
+      res.send(updatedData);
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+      res.status(500).send({ message: "Error updating data", error });
     }
-});
+  })
 
-app.put('/data/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const updateData = req.body;
 
-        const updatedUser = await Data.findByIdAndUpdate(id, updateData, { new: true });
-
-        if (!updatedUser) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        res.status(200).json({ message: 'User updated successfully', updatedUser });
-    } catch (error) {
-        console.error("Error updating user:", error);
-        res.status(500).json({ message: 'Server error', error });
-    }
-});
-// deposit data
 app.post("/data/deposit", async (req, res) => {
-    const { email, amount ,password } = req.body;
+  const { email, amount ,password } = req.body;
 
-    try {
-        // Find user by email
-        const user = await Data.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: "User not found" });
-        }
+  try {
+      // Find user by email
+      const user = await Data.findOne({ email });
+      if (!user) {
+          return res.status(400).json({ message: "User not found" });
+      }
 
-        // Ensure deposit amount is valid
-        const depositAmount = parseFloat(amount);
-        if (isNaN(depositAmount) || depositAmount <= 0) {
-            return res.status(400).json({ message: "Invalid deposit amount" });
-        }
+      // Ensure deposit amount is valid
+      const depositAmount = parseFloat(amount);
+      if (isNaN(depositAmount) || depositAmount <= 0) {
+          return res.status(400).json({ message: "Invalid deposit amount" });
+      }
 
-        // Update user balance (amount field)
-        user.amount += depositAmount;
-        await user.save();
+      // Update user balance (amount field)
+      user.amount += depositAmount;
+      await user.save();
 
-        res.json({ message: "Deposit successful", newBalance: user.amount });
-    } catch (error) {
-        console.error("Deposit Error:", error);
-        res.status(500).json({ message: "Server error", error: error.message });
-    }
+      res.json({ message: "Deposit successful", newBalance: user.amount });
+  } catch (error) {
+      console.error("Deposit Error:", error);
+      res.status(500).json({ message: "Server error", error: error.message });
+  }
 });
 
-    
+  
 //   withdraw method
 app.post("/data/withdraw", async (req, res) => {
-    const { email, amount ,password } = req.body;
+  const { email, amount ,password } = req.body;
 
-    try {
-        const user = await Data.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ message: "User not found" });
-        }
+  try {
+      const user = await Data.findOne({ email });
+      if (!user) {
+          return res.status(400).json({ message: "User not found" });
+      }
 
-    
-        const withdrawAmount = parseFloat(amount);
-        if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
-            return res.status(400).json({ message: "Invalid withdrawal amount" });
-        }
+  
+      const withdrawAmount = parseFloat(amount);
+      if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
+          return res.status(400).json({ message: "Invalid withdrawal amount" });
+      }
 
-        
-        if (user.amount < withdrawAmount) {
-            return res.status(400).json({ message: "Insufficient balance" });
-        }
+      
+      if (user.amount < withdrawAmount) {
+          return res.status(400).json({ message: "Insufficient balance" });
+      }
 
-       
-        user.amount -= withdrawAmount;
-        await user.save();
+     
+      user.amount -= withdrawAmount;
+      await user.save();
 
-        res.json({ message: "Withdrawal successful", newBalance: user.amount });
-    } catch (error) {
-        console.error("Withdraw Error:", error);
-        res.status(500).json({ message: "Server error", error: error.message });
-    }
+      res.json({ message: "Withdrawal successful", newBalance: user.amount });
+  } catch (error) {
+      console.error("Withdraw Error:", error);
+      res.status(500).json({ message: "Server error", error: error.message });
+  }
 });
-
-
-
